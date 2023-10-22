@@ -1,0 +1,28 @@
+name: Workflow Github Auto
+
+on: 
+ push:
+  branches: [ 'main', 'master' ]
+
+jobs:
+  testing:
+    runs-on: ubuntu-latest
+    container: crowdar/lippia:3.1.2.2
+    env: 
+      TAG: "@Success"
+      TESTTYPE: "Secuencial"
+      LANG: "@EN"
+    # Your other configuration variables here
+    steps:
+    - uses: actions/checkout@v3
+    - name: valores de las variables de entorno
+      run: echo "TAG= "$TAG,
+                "TESTTYPE= "$TESTTYPE,
+                "LANG= "$LANG
+    - name: Ejecucion de pruebas
+      continue-on-error: true
+      run: mvn test -P$TESTTYPE -Dcrowdar.cucumber.filter="'$TAG'" -Dcrowdar.cucumber.filter.language="'$LANG'"
+    - name: Subiendo informe
+      uses: actions/upload-artifact@v3
+      with:
+        path: target/reports/

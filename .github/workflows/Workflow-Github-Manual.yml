@@ -1,0 +1,52 @@
+
+name: Workflow github
+ manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'Filter type'
+        required: true
+        default: '@Success'
+        type: input
+      testtype:
+        description: 'Test type'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - Secuencial
+        - Paralell
+      language:
+        description: 'Language used to test against'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - '@EN'
+        - '@ES'
+    # Your other input configuration variables here
+
+jobs:
+  testing:
+    runs-on: ubuntu-latest
+    container: crowdar/lippia:3.1.2.2
+    env:
+          TAG: ${{ inputs.filter }}
+          TESTTYPE: ${{ inputs.testtype }}
+          LANG: ${{ inputs.language }}
+    # Your other configuration variables here
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Valores de las variables de entorno
+      run: echo "Filter type= "$TAG, "testtype= "$TESTTYPE, "Environment= "$LANG
+    - name: Realizando Pruebas
+      continue-on-error: true
+      run: mvn test -P$TESTTYPE -Dcrowdar.cucumber.filter="'$TAG'" -Dcrowdar.cucumber.filter.language="'$LANG'"
+    - name: Subiendo Informes
+      uses: actions/upload-artifact@v3
+      with:
+        path: target/reports/
+   

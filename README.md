@@ -1,92 +1,106 @@
 # Github pipeline example
 
+Es un proyecto que tiene como finalidad automatizar el testeo del codigo ingresado al repositorio, utilizando el framework Lippia.
 
+## Consideraciones
 
-## Getting started
+El proyecto incluye la imagen de Lippia con todas las herramientas necesarias para los tests. En la carpeta .github/workflows se encuentran dos archivos de automatización de pipelines que se ejecutan segun donde se haga el commit o el merge:
+- Cuando el commit se realiza a main o master el test se ejecuta automaticamente con el archivo Workflow-GIthub-Auto.yml
+- Cuando el commit se realiza a otro branch el test se debe ejecutar manualmente, corriendo el archivo Workflow-GIthub-Manual.yml
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+### Como se usa
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### CI dentro del repositorio de una app
 
-## Add your files
+En caso de ejecutar los test en el proceso de integración/delivery de una aplicación, se deben incluir los archivos ![Workflow-Github-app-build-pipeline-develop.yml](.github/workflows/Workflow-Github-app-build-pipeline-develop.yml) y [Workflow-Github-app-build-pipeline-main.yml](.github/workflows/Workflow-Github-app-build-pipeline-main.yml).
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+Esto define dos workflows que se ejecutaran dependiendo de que rama se modifica. Para el caso de la rama develop, disparará las pruebas en el ambiente de develop y en el caso de la rama *main* o *master* ejecutará las pruebas en el ambiente de test (o cualquier otro ambiente intermedio en el que se desee realizar el test).
 
+Para que el pipeline clone el repositorio donde se encuentra su proyecto de testing automatizado y ejecute dentro de la carpeta el test se debe asegurar que las variables de esta sección se encuentran disponibles para el workflow.
+
+```yaml
+  ...
+      run: |
+          git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@/path/to/your/<AUTOMATION_PROJECT>.git"
+  ...
 ```
-cd existing_repo
-git remote add origin https://gitlab.crowdaronline.com/lippia/products/samples/ci-tools-integration/github-pipeline-example.git
-git branch -M main
-git push -uf origin main
+
+> Se recomienda configurar las credenciales en variables de entorno de la herramienta de CI para evitar filtrar contraseñas en el código del repositorio.
+
+### CI dentro del repositorio de automation
+
+
+- Un nuevo commit en el repositorio a las branches "main" o "master" dispara el pipeline, iniciando las pruebas pertinentes. Si se desea cambiar esto se puede modificar en la siguiente sección del documento:
+
+```yaml
+on: 
+ push:
+  branches: [ 'main', 'master', 'test', 'dev' ] # Se agregan las ramas "test" y "dev" a las pruebas automáticas.
+
+ #para tener en cuenta
+      - '*'         # coincide con cada rama que no contiene un '/'
+      - '*/*'       # coincide con cada rama que contiene un solo '/'
+      - '**'        # coincide con cualquier rama
+      - '!master'   # excluye la rama master
+```
+*Este pipeline trabaja con la version de lippia 3.1.2.2, en caso de querer modificarla utilizar una imagen desde el siguiente link:
+>https://hub.docker.com/r/crowdar/lippia/tags
+
+- Antes de disparar el pipeline se deben configurar las siguientes variables de entorno dentro del archivo ![.github/workflows/Workflow-GIthub-Auto.yml](.github/workflows/Workflow-GIthub-Auto.yml) en "jobs: testing: env:", los valores de dichas variables se encuentran en el archivo POM.xml:
+  * **TAG**: lleva el nombre de la prueba
+  * **TESTTYPE**:  determina el tipo de pruebas a realizar
+  * **LANG**: determina el idioma
+
+- Si los test requieren variables adicionales o diferentes, se debe modificar esta sección del archivo para reflejar el cambio.
+
+```yaml
+    env: 
+      TAG: "@Success"
+      TESTTYPE: "Secuencial"
+      LANG: "@EN"
 ```
 
-## Integrate with your tools
+**NOTA:  el pipeline permite modificar o agregar mas variables de entorno dentro del apartado "env"**
 
-- [ ] [Set up project integrations](https://gitlab.crowdaronline.com/lippia/products/samples/ci-tools-integration/github-pipeline-example/-/settings/integrations)
+- En caso de que el commit sea realizado a un branch que no sea main o master, se deberá ejecutar manualmente el pipeline correspondiente al archivo ![.github/workflows/Workflow-GIthub-Manual.yml](.github/workflows/Workflow-GIthub-Manual.yml) declarando las variables o seleccionando las mismas en el contexto de ejecución.
 
-## Collaborate with your team
+- Si hiciera falta modificar estas variables se pueden modificar al comienzo del archivo en el apartado "inputs:" y en el apartado "env:" para que coincidan.
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```yaml
+inputs:
+  filter:
+        description: 'Filter type'
+        required: true
+        default: 'warning'
+        type: choice
+        options:
+        - '@Smoke'
+        - '@Success'
+        - '@regression' #se agrega este test que aparecera en la lista al disparar el pipeline
+  ```
 
-## Test and Deploy
 
-Use the built-in continuous integration in GitLab.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- Se puede seleccionar una variable del tipo "Choice" para darle al usuario la opción de elegir entre opciones prefijadas, o usar variables tipo "input" para dejar un campo de texto libre.
 
-***
+```yaml
+inputs:
+      filter:
+        description: 'Filter type'
+        required: true
+        default: '@Success'
+        type: input
+```
 
-# Editing this README
+  
+* para realizar las pruebas utilizamos el comando: 
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```yaml
+$ mvn clean test #Add your -P or -D configuration here
+```
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+* En caso de agregar o modificar variables de entorno realizar los cambios necesarios en el script del test en los archivos YAML
 
-## Name
-Choose a self-explaining name for your project.
+> Los reportes son generados en una carpeta llamada **Target**, que sera generada una vez que la ejecucion de las pruebas haya finalizado.
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+**para mas informacion ver [documentación lippia.](https://github.com/Crowdar/lippia-web-sample-project#getting-started "documentación lippia.")**
